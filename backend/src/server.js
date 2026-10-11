@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 const authRoutes = require('./routes/authRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
+const adminRoutes = require('./routes/adminRoutes');
 
 dotenv.config();
 
@@ -17,6 +18,7 @@ app.get('/', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/expenses', expenseRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.use((err, req, res, next) => {
   if (res.headersSent) {
