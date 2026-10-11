@@ -41,6 +41,7 @@ export async function getExpenses() {
 }
 
 export function getExpense(id) {
+  if (!id) return Promise.reject(new Error("Invalid expense ID"));
   return request(`/expenses/${id}`);
 }
 
@@ -49,9 +50,11 @@ export function createExpense(expense) {
 }
 
 export function updateExpense(id, expense) {
+  if (!id) return Promise.reject(new Error("Invalid expense ID"));
   return request(`/expenses/${id}`, { method: "PUT", body: JSON.stringify(expense) });
 }
 
 export function deleteExpense(id) {
+  if (!id) return Promise.reject(new Error("Invalid expense ID"));
   return request(`/expenses/${id}`, { method: "DELETE" });
 }

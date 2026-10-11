@@ -9,15 +9,17 @@ function ExpenseList({ expenses, onEdit, onDelete, disabled }) {
   if (expenses.length === 0) return <p className="empty">No expenses yet. Add one above.</p>;
 
   function handleDelete(expense) {
+    const id = expense._id || expense.id;
+    if (!id) return;
     if (window.confirm(`Delete "${expense.title}"? This cannot be undone.`)) {
-      onDelete(expense.id);
+      onDelete(id);
     }
   }
 
   return (
     <ul className="list">
       {expenses.map((expense) => (
-        <li key={expense.id}>
+        <li key={expense._id || expense.id}>
           <div className="item-info">
             <strong>{expense.title}</strong> - {formatAmount(expense.amount)}
             <br />
