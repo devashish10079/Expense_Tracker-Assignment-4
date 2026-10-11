@@ -115,7 +115,11 @@ function ExpensesPage({ user, onLogout }) {
 
     try {
       if (selectedExpense) {
-        await updateExpense(selectedExpense.id, form);
+        const id = selectedExpense._id || selectedExpense.id;
+        if (!id) {
+          throw new Error('Invalid expense ID');
+        }
+        await updateExpense(id, form);
         setSuccess('Expense updated');
       } else {
         await createExpense(form);
@@ -133,13 +137,18 @@ function ExpensesPage({ user, onLogout }) {
   }
 
   async function handleDelete(id) {
+    if (!id) {
+      setError('Invalid expense ID');
+      return;
+    }
     setSaving(true);
     setError('');
     setSuccess('');
 
     try {
       await deleteExpense(id);
-      if (selectedExpense && selectedExpense.id === id) setSelectedExpense(null);
+      const selectedId = selectedExpense ? (selectedExpense._id || selectedExpense.id) : null;
+      if (selectedId === id) setSelectedExpense(null);
       setSuccess('Expense deleted');
       await reloadExpenses();
     } catch (deleteError) {
@@ -169,7 +178,7 @@ function ExpensesPage({ user, onLogout }) {
       {error && <p className="error" role="alert">{error}</p>}
       {success && <p className="success" role="status">{success}</p>}
       <ExpenseForm
-        key={selectedExpense ? selectedExpense.id : 'new'}
+        key={selectedExpense ? (selectedExpense._id || selectedExpense.id) : 'new'}
         selectedExpense={selectedExpense}
         onSave={handleSave}
         onCancel={() => setSelectedExpense(null)}
