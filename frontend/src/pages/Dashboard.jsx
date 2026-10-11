@@ -8,7 +8,8 @@ import { getExpenses, createExpense, updateExpense, deleteExpense } from "../api
 function Dashboard() {
   const [expenses, setExpenses] = useState([]);
   const [selectedExpense, setSelectedExpense] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [category, setCategory] = useState("All");
@@ -17,26 +18,41 @@ function Dashboard() {
   const filteredExpenses =
     category === "All" ? expenses : expenses.filter((e) => e.category === category);
 
-  // Load expenses when the page opens
-  useEffect(() => {
-    loadExpenses();
-  }, []);
-
   async function loadExpenses() {
     setLoading(true);
     try {
-      const data = await getExpenses();
-      setExpenses(data);
+      setExpenses(await getExpenses());
       setError("");
     } catch (err) {
       setError(err.message);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
+  // Load expenses when the page opens
+  useEffect(() => {
+    let ignore = false;
+    getExpenses()
+      .then((data) => {
+        if (!ignore) setExpenses(data);
+      })
+      .catch((err) => {
+        if (!ignore) setError(err.message);
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  // Returns true when the save succeeded so the form knows it can clear itself
   async function handleSave(form) {
-    setLoading(true);
+    setSaving(true);
     setSuccess("");
+    setError("");
     try {
       if (selectedExpense) {
         await updateExpense(selectedExpense.id, form);
@@ -46,41 +62,50 @@ function Dashboard() {
         setSuccess("Expense added");
       }
       setSelectedExpense(null);
-      setError("");
       await loadExpenses();
+      return true;
     } catch (err) {
       setError(err.message);
+      return false;
+    } finally {
+      setSaving(false);
     }
-    setLoading(false);
   }
 
   async function handleDelete(id) {
-    setLoading(true);
+    setSaving(true);
     setSuccess("");
+    setError("");
     try {
       await deleteExpense(id);
+      if (selectedExpense && selectedExpense.id === id) setSelectedExpense(null);
       setSuccess("Expense deleted");
-      setError("");
       await loadExpenses();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setSaving(false);
     }
-    setLoading(false);
+  }
+
+  function handleEdit(expense) {
+    setSuccess("");
+    setSelectedExpense(expense);
   }
 
   return (
-    <div className="container">
+    <main className="container">
       <h1>Expense Tracker</h1>
 
-      {error && <p className="error">{error}</p>}
-      {success && <p className="success">{success}</p>}
+      {error && <p className="error" role="alert">{error}</p>}
+      {success && <p className="success" role="status">{success}</p>}
 
       <ExpenseForm
         key={selectedExpense ? selectedExpense.id : "new"}
         selectedExpense={selectedExpense}
         onSave={handleSave}
         onCancel={() => setSelectedExpense(null)}
-        loading={loading}
+        saving={saving}
       />
 
       <ExpenseSummary expenses={filteredExpenses} />
@@ -90,9 +115,12 @@ function Dashboard() {
         <CategoryFilter value={category} onChange={setCategory} />
       </div>
 
-      {loading && <p>Loading...</p>}
-      <ExpenseList expenses={filteredExpenses} onEdit={setSelectedExpense} onDelete={handleDelete} />
-    </div>
+      {loading ? (
+        <p>Loading...</p>
+      ) : (
+        <ExpenseList expenses={filteredExpenses} onEdit={handleEdit} onDelete={handleDelete} disabled={saving} />
+      )}
+    </main>
   );
 }
 

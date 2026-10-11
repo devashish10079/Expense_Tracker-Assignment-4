@@ -2,7 +2,7 @@ import categories from "../categories.js";
 
 function CategoryFilter({ value, onChange }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)}>
+    <select aria-label="Filter by category" value={value} onChange={(e) => onChange(e.target.value)}>
       <option value="All">All categories</option>
       {categories.map((c) => (
         <option key={c} value={c}>{c}</option>

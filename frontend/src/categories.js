@@ -1,4 +1,5 @@
 // One list of categories used by the form and the filter
-const categories = ["Food", "Travel", "Shopping", "Bills", "Education", "Other"];
+// Must match CATEGORIES in backend/src/server.js
+const categories = ["Food", "Travel", "Shopping", "Bills", "Other"];
 
 export default categories;
