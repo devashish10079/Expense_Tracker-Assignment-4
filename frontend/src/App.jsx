@@ -69,6 +69,7 @@ function App() {
       {success && <p className="success">{success}</p>}
 
       <ExpenseForm
+        key={selectedExpense ? selectedExpense.id : "new"}
         selectedExpense={selectedExpense}
         onSave={handleSave}
         onCancel={() => setSelectedExpense(null)}

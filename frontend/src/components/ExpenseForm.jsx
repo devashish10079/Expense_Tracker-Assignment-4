@@ -1,16 +1,11 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
 const emptyForm = { title: "", amount: "", category: "", date: "", description: "" };
 
 function ExpenseForm({ selectedExpense, onSave, onCancel, loading }) {
-  const [form, setForm] = useState(emptyForm);
+  // If we are editing, start with that expense's values
+  const [form, setForm] = useState(selectedExpense || emptyForm);
   const [error, setError] = useState("");
-
-  // When an expense is picked for editing, fill the form with its values
-  useEffect(() => {
-    setForm(selectedExpense ? selectedExpense : emptyForm);
-    setError("");
-  }, [selectedExpense]);
 
   function handleChange(e) {
     setForm({ ...form, [e.target.name]: e.target.value });
