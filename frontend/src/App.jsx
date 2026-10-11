@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { createExpense, deleteExpense, getExpenses, updateExpense } from './api/expenseApi.js';
+import AdminDashboardPage from './components/AdminDashboardPage.jsx';
 import ExpenseForm from './components/ExpenseForm.jsx';
 import ExpenseList from './components/ExpenseList.jsx';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/+$/, '');
 
 function getStoredUser() {
   try {
@@ -29,15 +30,21 @@ function clearAuth() {
 }
 
 async function authRequest(path, body) {
-  const response = await fetch(`${API_URL}${path}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
+  let response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  } catch {
+    throw new Error('Could not reach the server. Please check your connection and try again.');
+  }
+
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(data.message || 'Request failed');
+    throw new Error(data.message || `Request failed (${response.status})`);
   }
 
   return data;
@@ -53,6 +60,20 @@ function ProtectedRoute({ children, user }) {
   return children;
 }
 
+function AdminRoute({ children, user }) {
+  const location = useLocation();
+
+  if (!user || !getStoredToken()) {
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
+  if (user.role !== 'admin') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
+  return children;
+}
+
 function DashboardPage({ user, onLogout }) {
   const navigate = useNavigate();
 
@@ -61,14 +82,24 @@ function DashboardPage({ user, onLogout }) {
     navigate('/login');
   }
 
+  const isAdmin = user?.role === 'admin';
+
   return (
     <div className="page">
       <section className="card">
-        <h1>Dashboard</h1>
+        <div className="dashboard-header-block">
+          <h1>Dashboard</h1>
+          {isAdmin && <span className="badge admin-badge">Admin</span>}
+        </div>
         <p>Welcome, {user.name}</p>
         <p>{user.email}</p>
         <div className="button-row">
           <Link to="/expenses" className="button secondary">Manage expenses</Link>
+          {isAdmin && (
+            <Link to="/admin" className="button admin-btn">
+              Admin Dashboard
+            </Link>
+          )}
           <button type="button" onClick={handleLogout}>Logout</button>
         </div>
       </section>
@@ -163,6 +194,8 @@ function ExpensesPage({ user, onLogout }) {
     navigate('/login');
   }
 
+  const isAdmin = user?.role === 'admin';
+
   return (
     <main className="container">
       <header className="page-header">
@@ -172,6 +205,9 @@ function ExpensesPage({ user, onLogout }) {
         </div>
         <div className="button-row">
           <Link to="/dashboard" className="button secondary">Dashboard</Link>
+          {isAdmin && (
+            <Link to="/admin" className="button secondary">Admin Dashboard</Link>
+          )}
           <button type="button" onClick={handleLogout}>Logout</button>
         </div>
       </header>
@@ -278,6 +314,16 @@ function App() {
         <ProtectedRoute user={user}>
           <ExpensesPage user={user} onLogout={handleLogout} />
         </ProtectedRoute>
+      )} />
+      <Route path="/admin" element={(
+        <AdminRoute user={user}>
+          <AdminDashboardPage user={user} onLogout={handleLogout} />
+        </AdminRoute>
+      )} />
+      <Route path="/admin/expenses" element={(
+        <AdminRoute user={user}>
+          <AdminDashboardPage user={user} onLogout={handleLogout} />
+        </AdminRoute>
       )} />
       <Route path="*" element={<Navigate to={user ? '/dashboard' : '/login'} replace />} />
     </Routes>

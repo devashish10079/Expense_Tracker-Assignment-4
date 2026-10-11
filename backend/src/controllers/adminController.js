@@ -4,7 +4,11 @@ const Expense = require('../models/Expense');
 // GET /api/admin/expenses — list all expenses from all users
 const adminGetAllExpenses = async (req, res) => {
   try {
-    const expenses = await Expense.find({}).sort({ date: -1 });
+    let query = Expense.find({}).sort({ date: -1 });
+    if (typeof query.populate === 'function') {
+      query = query.populate('user', 'name email role');
+    }
+    const expenses = await query;
     return res.status(200).json(expenses);
   } catch (error) {
     return res.status(500).json({ message: 'Server error' });
@@ -18,7 +22,11 @@ const adminGetExpenseById = async (req, res) => {
   }
 
   try {
-    const expense = await Expense.findById(req.params.id);
+    let query = Expense.findById(req.params.id);
+    if (typeof query.populate === 'function') {
+      query = query.populate('user', 'name email role');
+    }
+    const expense = await query;
 
     if (!expense) {
       return res.status(404).json({ message: 'Expense not found' });

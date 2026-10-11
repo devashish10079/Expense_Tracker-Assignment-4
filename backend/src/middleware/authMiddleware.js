@@ -1,7 +1,15 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-const getJwtSecret = () => process.env.JWT_SECRET || 'secret-key';
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    const error = new Error('JWT_SECRET environment variable is not configured');
+    error.isConfigError = true;
+    throw error;
+  }
+  return secret;
+};
 
 const protect = async (req, res, next) => {
   const authHeader = req.headers.authorization;
@@ -10,10 +18,18 @@ const protect = async (req, res, next) => {
     return res.status(401).json({ message: 'Missing or invalid token' });
   }
 
+  let secret;
+  try {
+    secret = getJwtSecret();
+  } catch (configError) {
+    console.error('Authentication configuration error:', configError.message);
+    return res.status(500).json({ message: 'Server configuration error' });
+  }
+
   const token = authHeader.split(' ')[1];
 
   try {
-    const decoded = jwt.verify(token, getJwtSecret());
+    const decoded = jwt.verify(token, secret);
     const user = await User.findById(decoded.id).select('-password');
 
     if (!user) {
@@ -36,6 +52,7 @@ const admin = (req, res, next) => {
 };
 
 module.exports = {
+  getJwtSecret,
   protect,
   admin
 };

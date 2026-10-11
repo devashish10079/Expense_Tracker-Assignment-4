@@ -2,7 +2,15 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 
-const getJwtSecret = () => process.env.JWT_SECRET || 'secret-key';
+const getJwtSecret = () => {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    const error = new Error('JWT_SECRET environment variable is not configured');
+    error.isConfigError = true;
+    throw error;
+  }
+  return secret;
+};
 
 const generateToken = (user) => {
   return jwt.sign(
@@ -59,6 +67,10 @@ const registerUser = async (req, res) => {
     if (error && error.code === 11000) {
       return res.status(400).json({ message: 'User already exists with this email' });
     }
+    if (error && error.isConfigError) {
+      console.error('Server configuration error:', error.message);
+      return res.status(500).json({ message: 'Server configuration error' });
+    }
 
     return res.status(500).json({ message: 'Server error' });
   }
@@ -84,13 +96,21 @@ const loginUser = async (req, res) => {
     return res.status(401).json({ message: 'Invalid email or password' });
   }
 
-  const token = generateToken(user);
+  try {
+    const token = generateToken(user);
 
-  return res.status(200).json({
-    message: 'Login successful',
-    token,
-    user: sanitizeUser(user)
-  });
+    return res.status(200).json({
+      message: 'Login successful',
+      token,
+      user: sanitizeUser(user)
+    });
+  } catch (error) {
+    if (error && error.isConfigError) {
+      console.error('Server configuration error:', error.message);
+      return res.status(500).json({ message: 'Server configuration error' });
+    }
+    return res.status(500).json({ message: 'Server error' });
+  }
 };
 
 const getMe = async (req, res) => {
@@ -98,6 +118,7 @@ const getMe = async (req, res) => {
 };
 
 module.exports = {
+  getJwtSecret,
   generateToken,
   registerUser,
   loginUser,

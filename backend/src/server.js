@@ -1,3 +1,4 @@
+const path = require('path');
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -6,133 +7,78 @@ const authRoutes = require('./routes/authRoutes');
 const expenseRoutes = require('./routes/expenseRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 
-dotenv.config();
+// Load environment variables once from backend/.env
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-app.use(cors());
+// Production CORS Configuration
+const allowedOrigins = [
+  'https://expense-tracker-assignment-4.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:5000',
+  'http://localhost:5001',
+  'http://127.0.0.1:5173'
+];
+
+if (process.env.CLIENT_ORIGIN) {
+  const normalized = process.env.CLIENT_ORIGIN.replace(/\/+$/, '');
+  if (!allowedOrigins.includes(normalized)) {
+    allowedOrigins.push(normalized);
+  }
+}
+if (process.env.FRONTEND_URL) {
+  const normalized = process.env.FRONTEND_URL.replace(/\/+$/, '');
+  if (!allowedOrigins.includes(normalized)) {
+    allowedOrigins.push(normalized);
+  }
+}
+
+// Exact production origin and strictly constrained Vercel preview domain pattern
+const isAllowedVercelOrigin = (origin) => {
+  if (origin === 'https://expense-tracker-assignment-4.vercel.app') {
+    return true;
+  }
+  // Allow only official Vercel preview deployments belonging to this specific project and team/user scope
+  return /^https:\/\/expense-tracker-assignment-4(-[a-z0-9-]+)?-devashish10079s-projects\.vercel\.app$/.test(origin);
+};
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow non-browser requests (e.g. curl, server-to-server, mobile)
+    if (!origin) return callback(null, true);
+    if (
+      allowedOrigins.includes(origin) ||
+      process.env.NODE_ENV !== 'production' ||
+      isAllowedVercelOrigin(origin)
+    ) {
+      return callback(null, true);
+    }
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true
+}));
+
 app.use(express.json());
 
-// Must match the options in frontend/src/components/ExpenseForm.jsx
-const CATEGORIES = ['Food', 'Travel', 'Shopping', 'Bills', 'Other'];
-
-// Expenses are kept in memory (they reset when the server restarts)
-let expenses = [];
-let nextId = 1;
-
-function isValidDate(value) {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
-  const date = new Date(value + 'T00:00:00Z');
-  return !isNaN(date) && date.toISOString().slice(0, 10) === value;
-}
-
-// Checks the fields that are present. When `partial` is false, all required fields must be present.
-function validateExpense(body, partial) {
-  const errors = [];
-  const has = (key) => body[key] !== undefined;
-
-  if (has('title') || !partial) {
-    if (typeof body.title !== 'string' || !body.title.trim()) errors.push('Title is required');
-  }
-  if (has('amount') || !partial) {
-    const amount = typeof body.amount === 'string' && body.amount.trim() !== '' ? Number(body.amount) : body.amount;
-    if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
-      errors.push('Amount must be a positive number');
-    }
-  }
-  if (has('category') || !partial) {
-    if (!CATEGORIES.includes(body.category)) errors.push(`Category must be one of: ${CATEGORIES.join(', ')}`);
-  }
-  if (has('date') || !partial) {
-    if (!isValidDate(body.date)) errors.push('Date must be a valid date (YYYY-MM-DD)');
-  }
-  if (has('description') && typeof body.description !== 'string') {
-    errors.push('Description must be text');
-  }
-  return errors;
-}
-
-// Builds a clean expense from only the allowed fields, so clients can't set the ID or extra fields
-function pickFields(body) {
-  const fields = {};
-  if (body.title !== undefined) fields.title = body.title.trim();
-  if (body.amount !== undefined) fields.amount = Number(body.amount);
-  if (body.category !== undefined) fields.category = body.category;
-  if (body.date !== undefined) fields.date = body.date;
-  if (body.description !== undefined) fields.description = body.description.trim();
-  return fields;
-}
-
-function findIndex(idParam) {
-  const id = Number(idParam);
-  if (!Number.isInteger(id)) return -1;
-  return expenses.findIndex((e) => e.id === id);
-}
-
-function requireObjectBody(req, res, next) {
-  if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
-    return res.status(400).json({ message: 'Request body must be a JSON object' });
-  }
-  next();
-}
-
+// Base health route
 app.get('/', (req, res) => {
   res.status(200).json({ message: 'Expense Tracker API is running' });
 });
 
+// Mounted Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/admin', adminRoutes);
 
-// Get all expenses
-app.get('/api/expenses', (req, res) => {
-  res.json(expenses);
-});
-
-// Get one expense
-app.get('/api/expenses/:id', (req, res) => {
-  const index = findIndex(req.params.id);
-  if (index === -1) return res.status(404).json({ message: 'Expense not found' });
-  res.json(expenses[index]);
-});
-
-// Create an expense
-app.post('/api/expenses', requireObjectBody, (req, res) => {
-  const errors = validateExpense(req.body, false);
-  if (errors.length) return res.status(400).json({ message: errors.join('. '), errors });
-
-  const expense = { description: '', ...pickFields(req.body), id: nextId++ };
-  expenses.push(expense);
-  res.status(201).json(expense);
-});
-
-// Update an expense (only the fields that are sent are changed)
-app.put('/api/expenses/:id', requireObjectBody, (req, res) => {
-  const index = findIndex(req.params.id);
-  if (index === -1) return res.status(404).json({ message: 'Expense not found' });
-
-  const errors = validateExpense(req.body, true);
-  if (errors.length) return res.status(400).json({ message: errors.join('. '), errors });
-
-  expenses[index] = { ...expenses[index], ...pickFields(req.body), id: expenses[index].id };
-  res.json(expenses[index]);
-});
-
-// Delete an expense
-app.delete('/api/expenses/:id', (req, res) => {
-  const index = findIndex(req.params.id);
-  if (index === -1) return res.status(404).json({ message: 'Expense not found' });
-  expenses.splice(index, 1);
-  res.json({ message: 'Expense deleted' });
-});
-
-// Unknown routes
+// Unknown route handler
 app.use((req, res) => {
   res.status(404).json({ message: 'Route not found' });
 });
 
-// Malformed JSON and other errors
+// Central error handler
 app.use((err, req, res, next) => {
   if (res.headersSent) {
     return next(err);
@@ -142,29 +88,47 @@ app.use((err, req, res, next) => {
     return res.status(400).json({ message: 'Invalid JSON in request body' });
   }
 
+  if (err.message === 'Not allowed by CORS') {
+    return res.status(403).json({ message: 'CORS origin not allowed' });
+  }
+
   console.error(err);
   return res.status(500).json({ message: 'Server error' });
 });
 
+// Mask MongoDB credentials in connection error logs
+const sanitizeDbError = (msg) => {
+  if (typeof msg !== 'string') return '';
+  return msg.replace(/mongodb(\+srv)?:\/\/[^@\s]+@/g, 'mongodb$1://***@');
+};
+
 const connectDB = async () => {
-  const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/expense_tracker';
+  const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
+
+  if (!mongoUri) {
+    const errorMsg = 'Database connection failed: MONGO_URI (or MONGODB_URI) is not defined';
+    console.error(errorMsg);
+    throw new Error(errorMsg);
+  }
 
   try {
     await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 });
   } catch (error) {
-    console.error('Database connection failed:', error.message);
-    throw error;
+    const safeMsg = sanitizeDbError(error.message);
+    console.error('Database connection failed:', safeMsg);
+    throw new Error(safeMsg);
   }
 };
 
 const startServer = async () => {
   try {
     await connectDB();
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
     });
+    return server;
   } catch (error) {
-    console.error('Failed to start server:', error.message);
+    console.error('Failed to start server:', sanitizeDbError(error.message));
     process.exit(1);
   }
 };
