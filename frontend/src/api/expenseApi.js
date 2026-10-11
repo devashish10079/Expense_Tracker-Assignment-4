@@ -29,8 +29,24 @@ async function request(path, options = {}) {
     }
   }
 
+  if (res.status === 401) {
+    localStorage.removeItem("expenseTrackerToken");
+    localStorage.removeItem("expenseTrackerUser");
+    const error = new Error((data && data.message) || "Session expired. Please log in again.");
+    error.status = 401;
+    throw error;
+  }
+
+  if (res.status === 403) {
+    const error = new Error((data && data.message) || "Access denied: Administrator permissions required.");
+    error.status = 403;
+    throw error;
+  }
+
   if (!res.ok) {
-    throw new Error((data && data.message) || `Request failed (${res.status})`);
+    const error = new Error((data && data.message) || `Request failed (${res.status})`);
+    error.status = res.status;
+    throw error;
   }
   return data;
 }
@@ -57,4 +73,24 @@ export function updateExpense(id, expense) {
 export function deleteExpense(id) {
   if (!id) return Promise.reject(new Error("Invalid expense ID"));
   return request(`/expenses/${id}`, { method: "DELETE" });
+}
+
+export async function getAdminExpenses() {
+  const data = await request("/admin/expenses");
+  return Array.isArray(data) ? data : [];
+}
+
+export function getAdminExpense(id) {
+  if (!id) return Promise.reject(new Error("Invalid expense ID"));
+  return request(`/admin/expenses/${id}`);
+}
+
+export function updateAdminExpense(id, expense) {
+  if (!id) return Promise.reject(new Error("Invalid expense ID"));
+  return request(`/admin/expenses/${id}`, { method: "PUT", body: JSON.stringify(expense) });
+}
+
+export function deleteAdminExpense(id) {
+  if (!id) return Promise.reject(new Error("Invalid expense ID"));
+  return request(`/admin/expenses/${id}`, { method: "DELETE" });
 }

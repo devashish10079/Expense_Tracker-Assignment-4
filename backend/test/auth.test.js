@@ -7,6 +7,9 @@ const User = require('../src/models/User');
 const { registerUser, loginUser, generateToken } = require('../src/controllers/authController');
 const { protect, admin } = require('../src/middleware/authMiddleware');
 
+const TEST_SECRET = 'test-jwt-secret-key-12345';
+process.env.JWT_SECRET = TEST_SECRET;
+
 const createRes = () => {
   const res = {
     statusCode: 200,
@@ -61,7 +64,7 @@ test('registerUser should handle duplicate email errors from MongoDB', async (t)
   assert.equal(res.payload.message, 'User already exists with this email');
 });
 
-test('generateToken should prefer the configured JWT secret', () => {
+test('generateToken should sign token with configured JWT secret', () => {
   const previousSecret = process.env.JWT_SECRET;
   process.env.JWT_SECRET = 'configured-secret';
 
@@ -71,11 +74,20 @@ test('generateToken should prefer the configured JWT secret', () => {
   assert.equal(decoded.id, 'user-123');
   assert.equal(decoded.role, 'admin');
 
-  if (previousSecret === undefined) {
-    delete process.env.JWT_SECRET;
-  } else {
+  process.env.JWT_SECRET = previousSecret;
+});
+
+test('generateToken should throw configuration error when JWT_SECRET is missing', (t) => {
+  const previousSecret = process.env.JWT_SECRET;
+  delete process.env.JWT_SECRET;
+  t.after(() => {
     process.env.JWT_SECRET = previousSecret;
-  }
+  });
+
+  assert.throws(
+    () => generateToken({ _id: 'user-123', role: 'user' }),
+    /JWT_SECRET environment variable is not configured/
+  );
 });
 
 test('loginUser should reject invalid password', async (t) => {
@@ -102,8 +114,30 @@ test('loginUser should reject invalid password', async (t) => {
   assert.equal(res.payload.message, 'Invalid email or password');
 });
 
-test('protect should reject invalid or expired tokens', async () => {
-  const expiredToken = jwt.sign({ id: 'user-123', role: 'user' }, 'test-secret', { expiresIn: '0s' });
+test('protect should return 500 when JWT_SECRET is not configured', async (t) => {
+  const previousSecret = process.env.JWT_SECRET;
+  delete process.env.JWT_SECRET;
+  t.after(() => {
+    process.env.JWT_SECRET = previousSecret;
+  });
+
+  const req = {
+    headers: {
+      authorization: 'Bearer some.token.value'
+    }
+  };
+  const res = createRes();
+
+  await protect(req, res, () => {
+    throw new Error('next should not be called');
+  });
+
+  assert.equal(res.statusCode, 500);
+  assert.equal(res.payload.message, 'Server configuration error');
+});
+
+test('protect should reject invalid or expired tokens with 401 when JWT_SECRET is configured', async () => {
+  const expiredToken = jwt.sign({ id: 'user-123', role: 'user' }, TEST_SECRET, { expiresIn: '0s' });
   const req = {
     headers: {
       authorization: `Bearer ${expiredToken}`
@@ -130,4 +164,42 @@ test('admin should block non-admin users', async () => {
 
   assert.equal(res.statusCode, 403);
   assert.equal(res.payload.message, 'Access denied. Admin only.');
+});
+
+test('registerUser should always assign role=user even if role=admin is requested in body', async (t) => {
+  const originalCreate = User.create;
+  const originalFindOne = User.findOne;
+
+  t.after(() => {
+    User.create = originalCreate;
+    User.findOne = originalFindOne;
+  });
+
+  User.findOne = async () => null;
+  let createdData = null;
+  User.create = async (userData) => {
+    createdData = userData;
+    return {
+      _id: 'user-new',
+      name: userData.name,
+      email: userData.email,
+      role: userData.role
+    };
+  };
+
+  const req = {
+    body: {
+      name: 'Sneaky Admin',
+      email: 'sneaky@example.com',
+      password: 'Password123',
+      role: 'admin'
+    }
+  };
+  const res = createRes();
+
+  await registerUser(req, res);
+
+  assert.equal(res.statusCode, 201);
+  assert.equal(createdData.role, 'user');
+  assert.equal(res.payload.user.role, 'user');
 });
