@@ -11,7 +11,7 @@ function toForm(expense) {
     title: expense.title ?? "",
     amount: expense.amount != null ? String(expense.amount) : "",
     category: expense.category ?? "",
-    date: expense.date ?? "",
+    date: expense.date ? String(expense.date).slice(0, 10) : "",
     description: expense.description ?? "",
   };
 }

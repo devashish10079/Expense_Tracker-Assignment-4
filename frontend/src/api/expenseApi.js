@@ -4,10 +4,15 @@ const API_URL = (import.meta.env.VITE_API_URL || "http://localhost:5000/api").re
 // Small helper: sends a request and throws a readable error if it fails
 async function request(path, options = {}) {
   let res;
+  const token = localStorage.getItem("expenseTrackerToken");
+  const headers = { "Content-Type": "application/json", ...options.headers };
+
+  if (token) headers.Authorization = `Bearer ${token}`;
+
   try {
     res = await fetch(API_URL + path, {
       ...options,
-      headers: { "Content-Type": "application/json", ...options.headers },
+      headers,
     });
   } catch {
     throw new Error("Could not reach the server. Please check your connection and try again.");
