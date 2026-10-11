@@ -1,4 +1,5 @@
 import { useState } from "react";
+import categories from "../categories.js";
 
 const emptyForm = { title: "", amount: "", category: "", date: "", description: "" };
 
@@ -32,11 +33,9 @@ function ExpenseForm({ selectedExpense, onSave, onCancel, loading }) {
       <input name="amount" type="number" placeholder="Amount" value={form.amount} onChange={handleChange} />
       <select name="category" value={form.category} onChange={handleChange}>
         <option value="">Select category</option>
-        <option value="Food">Food</option>
-        <option value="Travel">Travel</option>
-        <option value="Shopping">Shopping</option>
-        <option value="Bills">Bills</option>
-        <option value="Other">Other</option>
+        {categories.map((c) => (
+          <option key={c} value={c}>{c}</option>
+        ))}
       </select>
       <input name="date" type="date" value={form.date} onChange={handleChange} />
       <textarea name="description" placeholder="Description" value={form.description} onChange={handleChange} />

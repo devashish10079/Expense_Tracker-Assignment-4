@@ -1,21 +1,12 @@
+import ExpenseCard from "./ExpenseCard.jsx";
+
 function ExpenseList({ expenses, onEdit, onDelete }) {
-  if (expenses.length === 0) return <p>No expenses yet.</p>;
+  if (expenses.length === 0) return <p className="empty">No expenses found.</p>;
 
   return (
     <ul className="list">
       {expenses.map((expense) => (
-        <li key={expense.id}>
-          <div>
-            <strong>{expense.title}</strong> - ₹{expense.amount}
-            <br />
-            <small>{expense.category} | {expense.date}</small>
-            {expense.description && <p>{expense.description}</p>}
-          </div>
-          <div>
-            <button onClick={() => onEdit(expense)}>Edit</button>
-            <button onClick={() => onDelete(expense.id)}>Delete</button>
-          </div>
-        </li>
+        <ExpenseCard key={expense.id} expense={expense} onEdit={onEdit} onDelete={onDelete} />
       ))}
     </ul>
   );
