@@ -1,54 +1,112 @@
 import { useState } from "react";
 
+// Must match CATEGORIES in backend/src/server.js
+const CATEGORIES = ["Food", "Travel", "Shopping", "Bills", "Other"];
+
 const emptyForm = { title: "", amount: "", category: "", date: "", description: "" };
 
-function ExpenseForm({ selectedExpense, onSave, onCancel, loading }) {
-  // If we are editing, start with that expense's values
-  const [form, setForm] = useState(selectedExpense || emptyForm);
+function toForm(expense) {
+  if (!expense) return emptyForm;
+  return {
+    title: expense.title ?? "",
+    amount: expense.amount != null ? String(expense.amount) : "",
+    category: expense.category ?? "",
+    date: expense.date ?? "",
+    description: expense.description ?? "",
+  };
+}
+
+// App passes key={expense id} so this component remounts (and refills) when switching expenses
+function ExpenseForm({ selectedExpense, onSave, onCancel, saving }) {
+  const [form, setForm] = useState(() => toForm(selectedExpense));
   const [error, setError] = useState("");
 
   function handleChange(e) {
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
-  function handleSubmit(e) {
+  function validate() {
+    if (!form.title.trim()) return "Title is required";
+    const amount = Number(form.amount);
+    if (form.amount.trim() === "" || !Number.isFinite(amount) || amount <= 0) {
+      return "Amount must be a positive number";
+    }
+    if (!CATEGORIES.includes(form.category)) return "Please choose a category";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(form.date) || isNaN(new Date(form.date))) {
+      return "Please enter a valid date";
+    }
+    return "";
+  }
+
+  async function handleSubmit(e) {
     e.preventDefault();
-
-    if (!form.title.trim()) return setError("Title is required");
-    if (!(Number(form.amount) > 0)) return setError("Amount must be a positive number");
-    if (!form.category) return setError("Category is required");
-    if (!form.date || isNaN(new Date(form.date))) return setError("Please enter a valid date");
-
+    const message = validate();
+    if (message) return setError(message);
     setError("");
-    onSave(form);
-    if (!selectedExpense) setForm(emptyForm);
+
+    const payload = {
+      title: form.title.trim(),
+      amount: Number(form.amount),
+      category: form.category,
+      date: form.date,
+      description: form.description.trim(),
+    };
+
+    // Only clear the form after the save succeeded
+    const ok = await onSave(payload);
+    if (ok && !selectedExpense) setForm(emptyForm);
   }
 
   return (
-    <form onSubmit={handleSubmit} className="form">
+    <form onSubmit={handleSubmit} className="form" noValidate>
       <h2>{selectedExpense ? "Edit Expense" : "Add Expense"}</h2>
 
-      <input name="title" placeholder="Title" value={form.title} onChange={handleChange} />
-      <input name="amount" type="number" placeholder="Amount" value={form.amount} onChange={handleChange} />
-      <select name="category" value={form.category} onChange={handleChange}>
-        <option value="">Select category</option>
-        <option value="Food">Food</option>
-        <option value="Travel">Travel</option>
-        <option value="Shopping">Shopping</option>
-        <option value="Bills">Bills</option>
-        <option value="Other">Other</option>
-      </select>
-      <input name="date" type="date" value={form.date} onChange={handleChange} />
-      <textarea name="description" placeholder="Description" value={form.description} onChange={handleChange} />
+      <label>
+        Title
+        <input name="title" value={form.title} onChange={handleChange} disabled={saving} required />
+      </label>
+      <label>
+        Amount (₹)
+        <input
+          name="amount"
+          type="number"
+          min="0.01"
+          step="0.01"
+          inputMode="decimal"
+          value={form.amount}
+          onChange={handleChange}
+          disabled={saving}
+          required
+        />
+      </label>
+      <label>
+        Category
+        <select name="category" value={form.category} onChange={handleChange} disabled={saving} required>
+          <option value="">Select category</option>
+          {CATEGORIES.map((c) => (
+            <option key={c} value={c}>{c}</option>
+          ))}
+        </select>
+      </label>
+      <label>
+        Date
+        <input name="date" type="date" value={form.date} onChange={handleChange} disabled={saving} required />
+      </label>
+      <label>
+        Description (optional)
+        <textarea name="description" value={form.description} onChange={handleChange} disabled={saving} />
+      </label>
 
-      {error && <p className="error">{error}</p>}
+      {error && <p className="error" role="alert">{error}</p>}
 
-      <button type="submit" disabled={loading}>
-        {loading ? "Saving..." : selectedExpense ? "Update" : "Add"}
-      </button>
-      {selectedExpense && (
-        <button type="button" onClick={onCancel}>Cancel</button>
-      )}
+      <div className="form-actions">
+        <button type="submit" disabled={saving}>
+          {saving ? "Saving..." : selectedExpense ? "Update" : "Add"}
+        </button>
+        {selectedExpense && (
+          <button type="button" onClick={onCancel} disabled={saving}>Cancel</button>
+        )}
+      </div>
     </form>
   );
 }
