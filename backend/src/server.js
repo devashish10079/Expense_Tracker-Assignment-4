@@ -26,7 +26,13 @@ app.use((err, req, res, next) => {
 
 const connectDB = async () => {
   const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/expense_tracker';
-  await mongoose.connect(mongoUri);
+
+  try {
+    await mongoose.connect(mongoUri, { serverSelectionTimeoutMS: 5000 });
+  } catch (error) {
+    console.error('Database connection failed:', error.message);
+    throw error;
+  }
 };
 
 const startServer = async () => {
