@@ -1,7 +1,5 @@
 import { useState } from "react";
-
-// Must match CATEGORIES in backend/src/server.js
-const CATEGORIES = ["Food", "Travel", "Shopping", "Bills", "Other"];
+import categories from "../categories.js";
 
 const emptyForm = { title: "", amount: "", category: "", date: "", description: "" };
 
@@ -31,7 +29,7 @@ function ExpenseForm({ selectedExpense, onSave, onCancel, saving }) {
     if (form.amount.trim() === "" || !Number.isFinite(amount) || amount <= 0) {
       return "Amount must be a positive number";
     }
-    if (!CATEGORIES.includes(form.category)) return "Please choose a category";
+    if (!categories.includes(form.category)) return "Please choose a category";
     if (!/^\d{4}-\d{2}-\d{2}$/.test(form.date) || isNaN(new Date(form.date))) {
       return "Please enter a valid date";
     }
@@ -83,7 +81,7 @@ function ExpenseForm({ selectedExpense, onSave, onCancel, saving }) {
         Category
         <select name="category" value={form.category} onChange={handleChange} disabled={saving} required>
           <option value="">Select category</option>
-          {CATEGORIES.map((c) => (
+          {categories.map((c) => (
             <option key={c} value={c}>{c}</option>
           ))}
         </select>

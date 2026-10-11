@@ -1,16 +1,20 @@
 * { box-sizing: border-box; }
 body { font-family: Arial, sans-serif; background: #f4f4f4; color: #222; margin: 0; }
-.container { max-width: 600px; margin: 20px auto; padding: 0 16px; }
+.container { max-width: 700px; margin: 20px auto; padding: 0 16px; }
 .form { display: flex; flex-direction: column; gap: 10px; background: white; padding: 16px; border-radius: 8px; }
 .form label { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
 .form input, .form select, .form textarea { padding: 8px; font-size: 16px; width: 100%; }
 .form textarea { min-height: 60px; resize: vertical; }
 .form-actions { display: flex; gap: 8px; }
+select { padding: 8px; font-size: 14px; }
 button { cursor: pointer; padding: 8px 12px; font-size: 14px; border: 1px solid #ccc; border-radius: 4px; background: #fff; }
 button:disabled { cursor: not-allowed; opacity: 0.6; }
 button.danger { color: #b00020; }
+.summary { background: #2563eb; color: white; padding: 16px; border-radius: 8px; margin-top: 16px; }
+.summary p, .summary h2 { margin: 0 0 4px; }
+.list-header { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .list { list-style: none; padding: 0; }
-.list li { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; background: white; padding: 12px; margin-bottom: 8px; border-radius: 8px; }
+.card { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; background: white; padding: 12px; margin-bottom: 8px; border-radius: 8px; }
 .item-info { min-width: 0; overflow-wrap: anywhere; }
 .item-info p { margin: 4px 0 0; }
 .item-actions { display: flex; gap: 4px; flex-shrink: 0; }
@@ -18,9 +22,10 @@ button.danger { color: #b00020; }
 .success { color: #1b5e20; }
 .empty { color: #555; }
 
-@media (max-width: 480px) {
+/* Mobile: stack items on small screens */
+@media (max-width: 600px) {
   .container { margin: 12px auto; }
-  .list li { flex-direction: column; }
+  .card, .list-header { flex-direction: column; align-items: stretch; }
   .item-actions { width: 100%; }
   .item-actions button, .form-actions button { flex: 1; }
 }
